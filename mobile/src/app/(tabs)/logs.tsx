@@ -1,14 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, RefreshControl, Platform, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Plus, Trash2, Salad, Dumbbell, Coffee, PlusCircle, Camera } from 'lucide-react-native';
+import { Plus, Trash2, Salad, Dumbbell, Coffee, PlusCircle, Camera, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { Config } from '@/constants/Config';
 import { supabase } from '@/services/supabase';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { SuccessModal, ErrorModal, AddFoodModal, AddExerciseModal, FoodDetailModal } from '@/components/modal';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface FoodLog {
   id: string;
@@ -37,6 +38,11 @@ export default function LogsScreen() {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
 
+  // Date and filter states
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
+
   // Modal and form states
   const [showAddFood, setShowAddFood] = useState(false);
   const [showAddExercise, setShowAddExercise] = useState(false);
@@ -47,20 +53,85 @@ export default function LogsScreen() {
   const [selectedFood, setSelectedFood] = useState<FoodLog | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const fetchData = async () => {
+  // Date helpers
+  const isToday = (d: Date) => {
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+  };
+
+  const isYesterday = (d: Date) => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return d.getDate() === yesterday.getDate() &&
+      d.getMonth() === yesterday.getMonth() &&
+      d.getFullYear() === yesterday.getFullYear();
+  };
+
+  const getDateLabel = () => {
+    if (isToday(selectedDate)) return 'Hoy';
+    if (isYesterday(selectedDate)) return 'Ayer';
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    return `${selectedDate.getDate()} de ${months[selectedDate.getMonth()]}, ${selectedDate.getFullYear()}`;
+  };
+
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(newDate);
+    fetchData(newDate);
+  };
+
+  const handleNextDay = () => {
+    if (isToday(selectedDate)) return;
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setSelectedDate(newDate);
+    fetchData(newDate);
+  };
+
+  // DatePicker Change Handlers
+  const onDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (event.type === 'dismissed') return;
+    if (date) {
+      setSelectedDate(date);
+      fetchData(date);
+    }
+  };
+
+  const onDateChangeIOS = (event: any, date?: Date) => {
+    if (date) {
+      setTempDate(date);
+    }
+  };
+
+  const confirmDateIOS = () => {
+    setSelectedDate(tempDate);
+    fetchData(tempDate);
+    setShowDatePicker(false);
+  };
+
+  const fetchData = async (dateToFetch: Date = selectedDate) => {
     if (!user) return;
 
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayIso = today.toISOString();
+      const startOfDay = new Date(dateToFetch);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(dateToFetch);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const startIso = startOfDay.toISOString();
+      const endIso = endOfDay.toISOString();
 
       if (activeTab === 'foods') {
         const { data, error } = await supabase
           .from('food_logs')
           .select('*')
           .eq('user_id', user.id)
-          .gte('logged_at', todayIso)
+          .gte('logged_at', startIso)
+          .lte('logged_at', endIso)
           .order('logged_at', { ascending: false });
 
         if (error) throw error;
@@ -70,7 +141,8 @@ export default function LogsScreen() {
           .from('exercise_logs')
           .select('*')
           .eq('user_id', user.id)
-          .gte('logged_at', todayIso)
+          .gte('logged_at', startIso)
+          .lte('logged_at', endIso)
           .order('logged_at', { ascending: false });
 
         if (error) throw error;
@@ -79,6 +151,7 @@ export default function LogsScreen() {
     } catch (err) {
       console.warn('Supabase logs fetch failed, utilizing fallbacks:', err);
       // Fallback local static data if DB not connected
+      const dateIso = dateToFetch.toISOString();
       if (activeTab === 'foods') {
         setFoodLogs([
           {
@@ -88,7 +161,7 @@ export default function LogsScreen() {
             protein: 24,
             carbs: 6,
             fat: 10,
-            logged_at: new Date().toISOString(),
+            logged_at: dateIso,
           },
           {
             id: '2',
@@ -97,7 +170,7 @@ export default function LogsScreen() {
             protein: 40,
             carbs: 86,
             fat: 16,
-            logged_at: new Date().toISOString(),
+            logged_at: dateIso,
           },
         ]);
       } else {
@@ -107,7 +180,7 @@ export default function LogsScreen() {
             exercise_type: 'Entrenamiento de Fuerza (Empuje)',
             duration_minutes: 60,
             intensity: 'Alta',
-            logged_at: new Date().toISOString(),
+            logged_at: dateIso,
           },
         ]);
       }
@@ -116,13 +189,13 @@ export default function LogsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    }, [user, activeTab])
+      fetchData(selectedDate);
+    }, [user, activeTab, selectedDate])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    await fetchData(selectedDate);
     setRefreshing(false);
   };
 
@@ -137,20 +210,25 @@ export default function LogsScreen() {
     carbs: number;
     fat: number;
   }) => {
+    const logDate = new Date(selectedDate);
+    const now = new Date();
+    logDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
     const newLog = {
       user_id: user?.id,
       ...food,
+      logged_at: logDate.toISOString(),
     };
 
     try {
       if (user) {
         const { error } = await supabase.from('food_logs').insert([newLog]);
         if (error) throw error;
-        fetchData();
+        fetchData(selectedDate);
       }
     } catch (err) {
       // Fallback local update
-      const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
+      const mockLog = { id: Math.random().toString(), ...newLog };
       setFoodLogs(prev => [mockLog, ...prev]);
     }
 
@@ -168,19 +246,24 @@ export default function LogsScreen() {
     duration_minutes: number;
     intensity: string;
   }) => {
+    const logDate = new Date(selectedDate);
+    const now = new Date();
+    logDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
     const newLog = {
       user_id: user?.id,
       ...exercise,
+      logged_at: logDate.toISOString(),
     };
 
     try {
       if (user) {
         const { error } = await supabase.from('exercise_logs').insert([newLog]);
         if (error) throw error;
-        fetchData();
+        fetchData(selectedDate);
       }
     } catch (err) {
-      const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
+      const mockLog = { id: Math.random().toString(), ...newLog };
       setExerciseLogs(prev => [mockLog, ...prev]);
     }
 
@@ -198,7 +281,7 @@ export default function LogsScreen() {
       if (user) {
         const { error } = await supabase.from('food_logs').delete().eq('id', id);
         if (error) throw error;
-        fetchData();
+        fetchData(selectedDate);
       }
     } catch (err) {
       setFoodLogs(prev => prev.filter(log => log.id !== id));
@@ -213,7 +296,7 @@ export default function LogsScreen() {
       if (user) {
         const { error } = await supabase.from('exercise_logs').delete().eq('id', id);
         if (error) throw error;
-        fetchData();
+        fetchData(selectedDate);
       }
     } catch (err) {
       setExerciseLogs(prev => prev.filter(log => log.id !== id));
@@ -226,8 +309,35 @@ export default function LogsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Diario de Hoy</Text>
+        <Text style={styles.title}>
+          {isToday(selectedDate) ? 'Diario de Hoy' : 'Historial de Actividad'}
+        </Text>
         <Text style={styles.subtitle}>Lleva el control de tus hábitos diarios</Text>
+      </View>
+
+      {/* Date Selector Bar */}
+      <View style={styles.dateSelector}>
+        <Pressable style={styles.dateArrow} onPress={handlePrevDay}>
+          <ChevronLeft size={20} color={Config.theme.colors.text} />
+        </Pressable>
+
+        <Pressable style={styles.dateTextContainer} onPress={() => {
+          if (Platform.OS === 'ios') {
+            setTempDate(selectedDate);
+          }
+          setShowDatePicker(true);
+        }}>
+          <Calendar size={16} color={Config.theme.colors.primary} style={{ marginRight: 8 }} />
+          <Text style={styles.dateText}>{getDateLabel()}</Text>
+        </Pressable>
+
+        <Pressable 
+          style={[styles.dateArrow, isToday(selectedDate) && styles.disabledArrow]} 
+          onPress={handleNextDay}
+          disabled={isToday(selectedDate)}
+        >
+          <ChevronRight size={20} color={isToday(selectedDate) ? Config.theme.colors.textMuted : Config.theme.colors.text} />
+        </Pressable>
       </View>
 
       {/* Tabs Switcher */}
@@ -372,6 +482,47 @@ export default function LogsScreen() {
         food={selectedFood}
         onClose={() => setShowDetailModal(false)}
       />
+      {/* iOS DateTimePicker Modal */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
+            <View style={styles.pickerModalContainer}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerHeaderTitle}>Filtrar por fecha</Text>
+                <TouchableOpacity onPress={confirmDateIOS} style={styles.confirmBtn}>
+                  <Text style={styles.confirmBtnText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pickerWrapper}>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display="spinner"
+                  textColor="#FFFFFF"
+                  onChange={onDateChangeIOS}
+                  maximumDate={new Date()}
+                />
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Android DateTimePicker dialog */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+          maximumDate={new Date()}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -498,5 +649,80 @@ const styles = StyleSheet.create({
   macroTagValue: {
     color: Config.theme.colors.text,
     fontWeight: '700',
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    marginHorizontal: Config.theme.spacing.lg,
+    borderRadius: Config.theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Config.theme.colors.cardBorder,
+    paddingVertical: Config.theme.spacing.sm,
+    paddingHorizontal: Config.theme.spacing.md,
+    marginBottom: Config.theme.spacing.md,
+  },
+  dateArrow: {
+    padding: Config.theme.spacing.xs,
+    borderRadius: Config.theme.borderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  disabledArrow: {
+    opacity: 0.4,
+  },
+  dateTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: Config.theme.spacing.sm,
+  },
+  dateText: {
+    color: Config.theme.colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(9, 13, 22, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContainer: {
+    backgroundColor: Config.theme.colors.cardBackground,
+    borderTopLeftRadius: Config.theme.borderRadius.xl,
+    borderTopRightRadius: Config.theme.borderRadius.xl,
+    borderWidth: 1,
+    borderColor: Config.theme.colors.cardBorder,
+    borderBottomWidth: 0,
+    paddingBottom: 40,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Config.theme.spacing.lg,
+    paddingVertical: Config.theme.spacing.md,
+    borderBottomWidth: 1,
+    borderColor: Config.theme.colors.cardBorder,
+  },
+  pickerHeaderTitle: {
+    color: Config.theme.colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  confirmBtn: {
+    backgroundColor: Config.theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Config.theme.borderRadius.md,
+  },
+  confirmBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  pickerWrapper: {
+    justifyContent: 'center',
+    paddingVertical: Config.theme.spacing.md,
   },
 });
