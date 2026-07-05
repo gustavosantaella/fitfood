@@ -86,7 +86,13 @@ export const AiRecommendationModal: React.FC<AiRecommendationModalProps> = ({
             </View>
 
             <View style={styles.buttonRow}>
-              <Button title="Descartar" onPress={onClose} variant="outline" style={styles.halfButton} />
+              <Button 
+                title="Descartar" 
+                onPress={onClose} 
+                variant="outline" 
+                style={[styles.halfButton, { borderColor: Config.theme.colors.error }]} 
+                textStyle={{ color: '#FFFFFF' }}
+              />
               <Button title="Aplicar Metas" onPress={onApply} variant="primary" style={styles.halfButton} />
             </View>
           </ScrollView>

@@ -11,6 +11,7 @@ import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { WeightChart } from '@/components/WeightChart';
 import { SuccessModal, ErrorModal, ConfirmModal, AiRecommendationModal } from '@/components/modal';
+import { FoodService } from '@/services/FoodService';
 
 interface WeightLog {
   id: string;
@@ -631,7 +632,7 @@ export default function ProfileScreen() {
         title={modalTitle}
         message={modalMessage}
         onConfirm={onConfirmAction || (() => {})}
-        onCancel={() => setShowConfirm(false)}
+        onClose={() => setShowConfirm(false)}
       />
 
       <AiRecommendationModal

@@ -150,8 +150,14 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        alwaysBounceVertical={true}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Config.theme.colors.primary} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={Config.theme.colors.primary} 
+            colors={[Config.theme.colors.primary]}
+          />
         }
       >
         {/* User Header */}

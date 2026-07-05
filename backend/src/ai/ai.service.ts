@@ -182,6 +182,8 @@ export class AiService {
       }
 
       const parsedResult: PlanRecommendation = JSON.parse(jsonText);
+      console.log('Gemini recommendation raw JSON:', jsonText);
+      console.log('Gemini recommendation parsed:', parsedResult);
 
       return {
         daily_calorie_goal: Math.round(Number(parsedResult.daily_calorie_goal)) || 2000,

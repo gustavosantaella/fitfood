@@ -47,7 +47,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               title={cancelText}
               onPress={onClose}
               variant="outline"
-              style={styles.halfButton}
+              style={[styles.halfButton, { borderColor: Config.theme.colors.error }]}
+              textStyle={{ color: '#FFFFFF' }}
             />
             <Button
               title={confirmText}

@@ -113,7 +113,13 @@ export const AddExerciseModal: React.FC<AddExerciseModalProps> = ({ visible, onS
             </View>
 
             <View style={styles.buttonRow}>
-              <Button title="Cancelar" onPress={handleClose} variant="outline" style={styles.halfButton} />
+              <Button 
+                title="Cancelar" 
+                onPress={handleClose} 
+                variant="outline" 
+                style={[styles.halfButton, { borderColor: Config.theme.colors.error }]} 
+                textStyle={{ color: '#FFFFFF' }}
+              />
               <Button title="Registrar" onPress={handleSave} variant="primary" style={styles.halfButton} />
             </View>
           </ScrollView>
