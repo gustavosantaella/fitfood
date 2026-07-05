@@ -1,10 +1,10 @@
 export const Config = {
   appName: 'My FitLife App',
 
-  // Supabase Credentials
+  // Supabase Credentials — loaded from .env via Expo's EXPO_PUBLIC_ prefix
   supabase: {
-    url: 'https://xzgurflxrnnviijiswib.supabase.co',
-    anonKey: 'sb_publishable_qwbJtBR3kw5SBAMzjdT-Lg_QtWfn5AB',
+    url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
+    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   },
 
   // Premium Minimalist Palette (Dark Mode First)
@@ -60,9 +60,9 @@ export const Config = {
     defaultFatGoal: 65,      // in g
   },
 
-  // API Configuration
+  // API Configuration — loaded from .env via Expo's EXPO_PUBLIC_ prefix
   api: {
-    backendUrl: 'http://192.168.250.5:3000',
+    backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL ?? 'http://localhost:3000',
   },
 
   // AI Analyzer configuration
