@@ -59,12 +59,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { user: verifiedUser }, error } = await supabase.auth.getUser();
         if (error || !verifiedUser) {
           console.warn('Session verification failed (user may have been deleted):', error);
-          // Clear invalid session
-          await supabase.auth.signOut();
+          // Clear invalid session locally first so router redirects immediately
           setSession(null);
           setUser(null);
           setProfile(null);
           setLoading(false);
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutErr) {
+            console.warn('Error calling signOut during session verification:', signOutErr);
+          }
           return;
         }
 
@@ -86,11 +90,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { user: verifiedUser }, error } = await supabase.auth.getUser();
         if (error || !verifiedUser) {
           console.warn('onAuthStateChange: User verification failed', error);
-          await supabase.auth.signOut();
           setSession(null);
           setUser(null);
           setProfile(null);
           setLoading(false);
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutErr) {
+            console.warn('Error calling signOut during auth state change verification:', signOutErr);
+          }
           return;
         }
         setSession(session);

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, Keyboard } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, Keyboard, Modal, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Sparkles, Calendar, ChevronRight, ChevronLeft, Dumbbell, Award, Target } from 'lucide-react-native';
@@ -8,8 +8,12 @@ import { Config } from '@/constants/Config';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { RulerPicker } from '@/components/RulerPicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { FoodService } from '@/services/FoodService';
 import { SuccessModal, ErrorModal } from '@/components/modal';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -21,7 +25,19 @@ export default function OnboardingScreen() {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [birthDate, setBirthDate] = useState('');
   const [age, setAge] = useState('0');
-  const [height, setHeight] = useState('');
+  const [height, setHeight] = useState(profile?.height?.toString() || '170');
+  const [rulerWidth, setRulerWidth] = useState(SCREEN_WIDTH - 96);
+
+  // DatePicker States
+  const [dateValue, setDateValue] = useState<Date>(() => {
+    if (profile?.birth_date) {
+      const parsed = new Date(profile.birth_date);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date(new Date().getFullYear() - 25, 0, 1); // default 25 yrs ago
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(dateValue);
 
   // Step 2 States: Physical Goals
   const [weightGoal, setWeightGoal] = useState('');
@@ -37,37 +53,70 @@ export default function OnboardingScreen() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
 
-  const handleBirthDateChange = (text: string) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    let formatted = cleaned;
+  // Format Date object to DD/MM/YYYY
+  const formatDateString = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-    if (cleaned.length > 2) {
-      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+  // Age calculation helper
+  const calculateAge = (dob: Date) => {
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      calculatedAge--;
     }
-    if (cleaned.length > 4) {
-      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4, 8)}`;
-    }
+    return Math.max(0, calculatedAge).toString();
+  };
 
-    setBirthDate(formatted);
-
-    if (cleaned.length === 8) {
-      const day = parseInt(cleaned.slice(0, 2));
-      const month = parseInt(cleaned.slice(2, 4));
-      const year = parseInt(cleaned.slice(4, 8));
-
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const dob = new Date(year, month - 1, day);
-        if (!isNaN(dob.getTime())) {
-          const today = new Date();
-          let calculatedAge = today.getFullYear() - dob.getFullYear();
-          const m = today.getMonth() - dob.getMonth();
-          if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-            calculatedAge--;
+  // Sync profile details if they load asynchronously
+  useEffect(() => {
+    if (profile) {
+      if (profile.full_name) setFullName(profile.full_name);
+      if (profile.birth_date) {
+        const parts = profile.birth_date.split('-');
+        if (parts.length === 3) {
+          const formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          setBirthDate(formatted);
+          const dob = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          if (!isNaN(dob.getTime())) {
+            setDateValue(dob);
+            setTempDate(dob);
+            setAge(calculateAge(dob));
           }
-          setAge(Math.max(0, calculatedAge).toString());
         }
       }
+      if (profile.height) {
+        setHeight(profile.height.toString());
+      }
     }
+  }, [profile]);
+
+  // DatePicker Change Handlers
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (event.type === 'dismissed') return;
+    if (selectedDate) {
+      setDateValue(selectedDate);
+      setBirthDate(formatDateString(selectedDate));
+      setAge(calculateAge(selectedDate));
+    }
+  };
+
+  const onDateChangeIOS = (event: any, selectedDate?: Date) => {
+    if (selectedDate) {
+      setTempDate(selectedDate);
+    }
+  };
+
+  const confirmDateIOS = () => {
+    setDateValue(tempDate);
+    setBirthDate(formatDateString(tempDate));
+    setAge(calculateAge(tempDate));
+    setShowDatePicker(false);
   };
 
   const handleSkip = async () => {
@@ -261,15 +310,22 @@ export default function OnboardingScreen() {
                   autoCapitalize="words"
                 />
 
-                <Input
-                  label="Fecha de nacimiento"
-                  placeholder="DD/MM/AAAA"
-                  value={birthDate}
-                  onChangeText={handleBirthDateChange}
-                  keyboardType="numeric"
-                  maxLength={10}
-                  icon={<Calendar size={18} color={Config.theme.colors.textSecondary} />}
-                />
+                <Pressable onPress={() => {
+                  if (Platform.OS === 'ios') {
+                    setTempDate(dateValue);
+                  }
+                  setShowDatePicker(true);
+                }}>
+                  <View pointerEvents="none">
+                    <Input
+                      label="Fecha de nacimiento"
+                      placeholder="Selecciona tu fecha"
+                      value={birthDate}
+                      editable={false}
+                      icon={<Calendar size={18} color={Config.theme.colors.textSecondary} />}
+                    />
+                  </View>
+                </Pressable>
 
                 {parseInt(age) > 0 && (
                   <View style={styles.ageBadge}>
@@ -277,13 +333,24 @@ export default function OnboardingScreen() {
                   </View>
                 )}
 
-                <Input
-                  label="Estatura (cm)"
-                  placeholder="Ej. 175"
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="numeric"
-                />
+                <View style={styles.heightContainer}>
+                  <Text style={styles.heightLabel}>Estatura</Text>
+                  <View style={styles.heightValueRow}>
+                    <Text style={styles.heightValueText}>{parseFloat(height || '170').toFixed(1)}</Text>
+                    <Text style={styles.heightUnitText}>cm</Text>
+                  </View>
+                  
+                  <View style={styles.rulerWrapper} onLayout={(e) => setRulerWidth(e.nativeEvent.layout.width)}>
+                    <RulerPicker
+                      minVal={100}
+                      maxVal={220}
+                      initialVal={parseFloat(height || '170')}
+                      unit="cm"
+                      containerWidth={rulerWidth}
+                      onValueChange={(val) => setHeight(val.toString())}
+                    />
+                  </View>
+                </View>
               </Card>
             )}
 
@@ -397,6 +464,48 @@ export default function OnboardingScreen() {
 
       <SuccessModal visible={showSuccess} title={modalTitle} message={modalMessage} onClose={handleSuccessClose} />
       <ErrorModal visible={showError} title={modalTitle} message={modalMessage} onClose={() => setShowError(false)} />
+
+      {/* iOS DateTimePicker Modal */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
+            <View style={styles.pickerModalContainer}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerHeaderTitle}>Fecha de nacimiento</Text>
+                <TouchableOpacity onPress={confirmDateIOS} style={styles.confirmBtn}>
+                  <Text style={styles.confirmBtnText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pickerWrapper}>
+                <DateTimePicker
+                  value={tempDate}
+                  mode="date"
+                  display="spinner"
+                  textColor="#FFFFFF"
+                  onChange={onDateChangeIOS}
+                  maximumDate={new Date()}
+                />
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Android DateTimePicker dialog */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={dateValue}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+          maximumDate={new Date()}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -560,5 +669,85 @@ const styles = StyleSheet.create({
   },
   halfButtonPlaceholder: {
     flex: 0.48,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(9, 13, 22, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContainer: {
+    backgroundColor: Config.theme.colors.cardBackground,
+    borderTopLeftRadius: Config.theme.borderRadius.xl,
+    borderTopRightRadius: Config.theme.borderRadius.xl,
+    borderWidth: 1,
+    borderColor: Config.theme.colors.cardBorder,
+    borderBottomWidth: 0,
+    paddingBottom: 40,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Config.theme.spacing.lg,
+    paddingVertical: Config.theme.spacing.md,
+    borderBottomWidth: 1,
+    borderColor: Config.theme.colors.cardBorder,
+  },
+  pickerHeaderTitle: {
+    color: Config.theme.colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  confirmBtn: {
+    backgroundColor: Config.theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Config.theme.borderRadius.md,
+  },
+  confirmBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  pickerWrapper: {
+    justifyContent: 'center',
+    paddingVertical: Config.theme.spacing.md,
+  },
+  heightContainer: {
+    marginTop: Config.theme.spacing.sm,
+    width: '100%',
+  },
+  heightLabel: {
+    color: Config.theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: Config.theme.spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  heightValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginTop: Config.theme.spacing.xs,
+    marginBottom: Config.theme.spacing.xs,
+  },
+  heightValueText: {
+    color: Config.theme.colors.text,
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  heightUnitText: {
+    color: Config.theme.colors.primary,
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  rulerWrapper: {
+    width: '100%',
+    marginVertical: Config.theme.spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+    borderRadius: Config.theme.borderRadius.md,
+    paddingVertical: Config.theme.spacing.sm,
   },
 });
