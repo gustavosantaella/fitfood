@@ -11,6 +11,7 @@ interface ButtonProps {
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  icon: any;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -25,7 +26,7 @@ export const Button: React.FC<ButtonProps> = ({
   const isOutline = variant === 'outline';
   const isText = variant === 'text';
   const isSecondary = variant === 'secondary';
-  
+
   const isDisabled = disabled || loading;
 
   const getGradientColors = () => {

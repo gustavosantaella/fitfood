@@ -8,7 +8,6 @@ import { Config } from '@/constants/Config';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { RulerPicker } from '@/components/RulerPicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FoodService } from '@/services/FoodService';
 import { SuccessModal, ErrorModal } from '@/components/modal';
@@ -18,15 +17,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user, profile, updateProfile } = useAuth();
-  
+
   const [step, setStep] = useState(1);
-  
+
   // Step 1 States: Personal Info
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [birthDate, setBirthDate] = useState('');
   const [age, setAge] = useState('0');
-  const [height, setHeight] = useState(profile?.height?.toString() || '170');
-  const [rulerWidth, setRulerWidth] = useState(SCREEN_WIDTH - 96);
+  const [height, setHeight] = useState(profile?.height?.toString() || '');
 
   // DatePicker States
   const [dateValue, setDateValue] = useState<Date>(() => {
@@ -122,9 +120,33 @@ export default function OnboardingScreen() {
   const handleSkip = async () => {
     setLoading(true);
     try {
-      const { error } = await updateProfile({
+      // Format birth_date if exists
+      let dbDateString = null;
+      if (birthDate) {
+        let parts = birthDate.split('/');
+        if (parts.length === 3) {
+          dbDateString = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+      }
+
+      const parsedAge = age && parseInt(age) > 0 ? parseInt(age) : null;
+      const parsedHeight = height ? parseFloat(height) : null;
+      const parsedWeightGoal = weightGoal ? parseFloat(weightGoal) : null;
+
+      const updates: any = {
         onboarding_completed: true,
-      });
+      };
+
+      if (fullName.trim()) updates.full_name = fullName.trim();
+      if (dbDateString) updates.birth_date = dbDateString;
+      if (parsedAge) updates.age = parsedAge;
+      if (parsedHeight) updates.height = parsedHeight;
+      if (parsedWeightGoal) updates.weight_goal = parsedWeightGoal;
+      if (goalsDescription.trim()) updates.goals_description = goalsDescription.trim();
+      if (trainingDays) updates.training_days_per_week = trainingDays;
+      if (trainingDuration) updates.training_duration_per_session = trainingDuration;
+
+      const { error } = await updateProfile(updates);
       if (error) throw error;
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -271,15 +293,15 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          
+
           {/* Header row */}
           <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>Comencemos</Text>
               <Text style={styles.headerSubtitle}>Paso {step} de 3</Text>
             </View>
-            <Pressable 
-              style={[styles.skipBtn, { borderColor: Config.theme.colors.error }]} 
+            <Pressable
+              style={[styles.skipBtn, { borderColor: Config.theme.colors.error }]}
               onPress={handleSkip}
             >
               <Text style={[styles.skipText, { color: '#FFFFFF' }]}>Omitir</Text>
@@ -292,7 +314,7 @@ export default function OnboardingScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            
+
             {/* STEP 1: Personal Data */}
             {step === 1 && (
               <Card style={styles.stepCard}>
@@ -333,24 +355,13 @@ export default function OnboardingScreen() {
                   </View>
                 )}
 
-                <View style={styles.heightContainer}>
-                  <Text style={styles.heightLabel}>Estatura</Text>
-                  <View style={styles.heightValueRow}>
-                    <Text style={styles.heightValueText}>{parseFloat(height || '170').toFixed(1)}</Text>
-                    <Text style={styles.heightUnitText}>cm</Text>
-                  </View>
-                  
-                  <View style={styles.rulerWrapper} onLayout={(e) => setRulerWidth(e.nativeEvent.layout.width)}>
-                    <RulerPicker
-                      minVal={100}
-                      maxVal={220}
-                      initialVal={parseFloat(height || '170')}
-                      unit="cm"
-                      containerWidth={rulerWidth}
-                      onValueChange={(val) => setHeight(val.toString())}
-                    />
-                  </View>
-                </View>
+                <Input
+                  label="Estatura (cm)"
+                  placeholder="Ej. 175"
+                  value={height}
+                  onChangeText={setHeight}
+                  keyboardType="numeric"
+                />
               </Card>
             )}
 
@@ -426,11 +437,11 @@ export default function OnboardingScreen() {
             {/* Navigation buttons */}
             <View style={styles.buttonRow}>
               {step > 1 ? (
-                <Button 
-                  title="Atrás" 
-                  onPress={handleBack} 
-                  variant="outline" 
-                  style={styles.halfButton} 
+                <Button
+                  title="Atrás"
+                  onPress={handleBack}
+                  variant="outline"
+                  style={styles.halfButton}
                   icon={<ChevronLeft size={18} color={Config.theme.colors.primary} />}
                 />
               ) : (
@@ -438,19 +449,19 @@ export default function OnboardingScreen() {
               )}
 
               {step < 3 ? (
-                <Button 
-                  title="Siguiente" 
-                  onPress={handleNext} 
-                  variant="primary" 
-                  style={styles.halfButton} 
+                <Button
+                  title="Siguiente"
+                  onPress={handleNext}
+                  variant="primary"
+                  style={styles.halfButton}
                   icon={<ChevronRight size={18} color="#FFFFFF" />}
                 />
               ) : (
-                <Button 
-                  title="Completar" 
-                  onPress={handleComplete} 
-                  variant="primary" 
-                  style={styles.halfButton} 
+                <Button
+                  title="Completar"
+                  onPress={handleComplete}
+                  variant="primary"
+                  style={styles.halfButton}
                   loading={loading}
                   icon={<Sparkles size={16} color="#FFFFFF" />}
                 />

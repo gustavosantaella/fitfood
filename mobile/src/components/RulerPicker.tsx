@@ -45,12 +45,15 @@ export function RulerPicker({
     'right-spacer',
   ];
 
+  const lastScrolledValue = useRef(-999);
+
   // Initial scroll alignment
   useEffect(() => {
-    const diff = Math.abs(selectedValue - initialVal);
-    // Only scroll if value is significantly different (e.g. from async profile load)
+    const diff = Math.abs(lastScrolledValue.current - initialVal);
+    // Only scroll if value is significantly different (e.g. from async profile load) and not from our own scrolling
     if (diff > 0.15) {
       setSelectedValue(initialVal);
+      lastScrolledValue.current = initialVal;
       const timer = setTimeout(() => {
         const scrollOffset = ((initialVal - minVal) / itemStep) * ITEM_WIDTH;
         flatListRef.current?.scrollToOffset({
@@ -70,6 +73,7 @@ export function RulerPicker({
     const roundedVal = Math.round(Math.max(minVal, Math.min(maxVal, value)) * 10) / 10;
     if (roundedVal !== selectedValue) {
       setSelectedValue(roundedVal);
+      lastScrolledValue.current = roundedVal;
       onValueChange(roundedVal);
     }
   };
