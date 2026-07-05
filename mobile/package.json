@@ -6,6 +6,7 @@
     "@react-native-community/datetimepicker": "8.4.4",
     "@supabase/supabase-js": "^2.110.0",
     "expo": "~54.0.2",
+    "expo-constants": "~18.0.13",
     "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~7.0.3",
@@ -26,6 +27,9 @@
     "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
   },
+  "overrides": {
+    "expo-constants": "~18.0.13"
+  },
   "scripts": {
     "start": "expo start -c",
     "android": "expo start --android",
@@ -34,3 +38,4 @@
   },
   "private": true
 }
+
