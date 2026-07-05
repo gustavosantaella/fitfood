@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "extra": {
+      "eas":{
+        "projectId": "70820c84-a453-4810-928c-4828c63cf3f5"
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ve.nexosoftware.myfitlifeapp"
