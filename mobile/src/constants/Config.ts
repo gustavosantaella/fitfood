@@ -3,8 +3,7 @@ export const Config = {
 
   // Supabase Credentials
   supabase: {
-    url: 'https://xzgurflxrnnviijiswib.supabase.co',
-    anonKey: 'sb_publishable_qwbJtBR3kw5SBAMzjdT-Lg_QtWfn5AB',
+
   },
 
   // Premium Minimalist Palette (Dark Mode First)
