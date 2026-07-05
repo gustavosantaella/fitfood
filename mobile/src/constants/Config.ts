@@ -3,7 +3,8 @@ export const Config = {
 
   // Supabase Credentials
   supabase: {
-
+    url: 'https://xzgurflxrnnviijiswib.supabase.co',
+    anonKey: 'sb_publishable_qwbJtBR3kw5SBAMzjdT-Lg_QtWfn5AB',
   },
 
   // Premium Minimalist Palette (Dark Mode First)
@@ -59,10 +60,14 @@ export const Config = {
     defaultFatGoal: 65,      // in g
   },
 
+  // API Configuration
+  api: {
+    backendUrl: 'http://192.168.250.5:3000',
+  },
+
   // AI Analyzer configuration
   ai: {
-    // If they want to integrate Gemini directly later
-    geminiApiKey: '',
+
     // Mock response options to make the scanning demo look super professional
     mockFoods: [
       {

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Flame, Plus, Dumbbell, Activity, PlusCircle, ArrowRight } from 'lucide-react-native';
+import { Flame, Plus, Dumbbell, Activity, PlusCircle, ArrowRight, Droplet } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { Config } from '@/constants/Config';
 import { supabase } from '@/services/supabase';
@@ -31,6 +31,7 @@ export default function DashboardScreen() {
   });
   const [exerciseCount, setExerciseCount] = useState(0);
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
+  const [waterIntake, setWaterIntake] = useState(0);
 
   // Fetch summary data from Supabase
   const fetchData = async () => {
@@ -84,6 +85,17 @@ export default function DashboardScreen() {
       if (weightLogs && weightLogs.length > 0) {
         setLatestWeight(weightLogs[0].weight);
       }
+
+      // 4. Fetch Water logs
+      const { data: waterLogs, error: waterError } = await supabase
+        .from('water_logs')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('logged_at', todayIso);
+
+      if (waterError) throw waterError;
+      const totalWater = (waterLogs || []).reduce((sum, log) => sum + log.amount, 0);
+      setWaterIntake(totalWater);
     } catch (err) {
       console.warn('Supabase fetch failed, utilizing fallback demo values:', err);
       // Fallback Demo Values in case database tables are not fully set up
@@ -95,6 +107,21 @@ export default function DashboardScreen() {
       });
       setExerciseCount(1);
       setLatestWeight(profile?.weight_goal || 72.5);
+      setWaterIntake(750);
+    }
+  };
+
+  const handleAddWater = async (amount: number) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('water_logs')
+        .insert([{ user_id: user.id, amount }]);
+      if (error) throw error;
+      setWaterIntake(prev => prev + amount);
+    } catch (err) {
+      console.warn('Could not save water log:', err);
+      setWaterIntake(prev => prev + amount);
     }
   };
 
@@ -111,43 +138,7 @@ export default function DashboardScreen() {
   };
 
   const handleQuickWeightLog = () => {
-    Alert.prompt(
-      'Registrar Peso',
-      'Ingresa tu peso actual en kg:',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Registrar',
-          onPress: async (weightStr) => {
-            const weightVal = parseFloat(weightStr || '');
-            if (isNaN(weightVal) || weightVal <= 0) {
-              Alert.alert('Valor inválido', 'Por favor ingresa un número de peso válido.');
-              return;
-            }
-            
-            try {
-              if (user) {
-                const { error } = await supabase.from('weight_logs').insert([
-                  {
-                    user_id: user.id,
-                    weight: weightVal,
-                  },
-                ]);
-                if (error) throw error;
-                Alert.alert('Registrado', `Tu peso de ${weightVal} kg ha sido guardado.`);
-                fetchData();
-              }
-            } catch (err) {
-              // Fallback
-              setLatestWeight(weightVal);
-              Alert.alert('Modo Local', `Peso guardado localmente: ${weightVal} kg.`);
-            }
-          },
-        },
-      ],
-      'plain-text',
-      latestWeight?.toString() || ''
-    );
+    router.push('/weight-picker?mode=actual');
   };
 
   const calorieGoal = profile?.daily_calorie_goal || Config.nutrition.defaultCalorieGoal;
@@ -178,6 +169,35 @@ export default function DashboardScreen() {
 
         {/* Circular Progress Ring */}
         <MetricRing current={nutritionSummary.calories} goal={calorieGoal} />
+
+        {/* Water Intake Tracker Card */}
+        <Card style={styles.waterCard} onPress={() => router.push('/liquids-logger')}>
+          <View style={styles.waterHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={styles.waterIconCircle}>
+                <Droplet size={20} color="#3B82F6" fill="#3B82F6" />
+              </View>
+              <View style={{ marginLeft: 10 }}>
+                <Text style={styles.waterTitle}>Consumo de Líquidos</Text>
+                <Text style={styles.waterValue}>
+                  {waterIntake} ml <Text style={styles.waterGoal}>/ {profile?.daily_water_goal || 2000} ml</Text>
+                </Text>
+              </View>
+            </View>
+            <View style={styles.bannerButton}>
+              <Plus size={16} color="#FFFFFF" />
+            </View>
+          </View>
+          {/* Water progress bar */}
+          <View style={styles.waterProgressBarTrack}>
+            <View 
+              style={[
+                styles.waterProgressBarFill, 
+                { width: `${Math.min((waterIntake / (profile?.daily_water_goal || 2000)) * 100, 100)}%` }
+              ]} 
+            />
+          </View>
+        </Card>
 
         {/* Macronutrient Bars */}
         <Card style={styles.macrosCard}>
@@ -368,5 +388,63 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: Config.theme.spacing.sm,
+  },
+  waterCard: {
+    marginBottom: Config.theme.spacing.md,
+    padding: Config.theme.spacing.md,
+  },
+  waterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Config.theme.spacing.sm,
+  },
+  waterIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waterTitle: {
+    color: Config.theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  waterValue: {
+    color: Config.theme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  waterGoal: {
+    color: Config.theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  quickAddBtn: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Config.theme.borderRadius.sm,
+  },
+  quickAddBtnText: {
+    color: '#3B82F6',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  waterProgressBarTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+    width: '100%',
+  },
+  waterProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 3,
   },
 });

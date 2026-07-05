@@ -43,6 +43,7 @@ export default function TabsLayout() {
         name="analyzer"
         options={{
           title: 'IA Scan',
+          href: null,
           tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
         }}
       />

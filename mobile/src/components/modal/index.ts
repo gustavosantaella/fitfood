@@ -1,3 +1,7 @@
 export * from './SuccessModal';
 export * from './ErrorModal';
 export * from './ConfirmModal';
+export * from './AddFoodModal';
+export * from './AddExerciseModal';
+export * from './FoodDetailModal';
+export * from './AiRecommendationModal';

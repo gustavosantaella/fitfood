@@ -8,6 +8,11 @@ interface Profile {
   email: string;
   full_name: string | null;
   weight_goal: number | null;
+  height: number | null;
+  birth_date: string | null;
+  age: number;
+  training_days_per_week: number | null;
+  training_duration_per_session: string | null;
   daily_calorie_goal: number;
   daily_protein_goal: number;
   daily_carbs_goal: number;
@@ -79,6 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: user?.email || '',
             full_name: '',
             weight_goal: null,
+            height: null,
+            birth_date: null,
+            age: 0,
+            training_days_per_week: null,
+            training_duration_per_session: null,
             daily_calorie_goal: Config.nutrition.defaultCalorieGoal,
             daily_protein_goal: Config.nutrition.defaultProteinGoal,
             daily_carbs_goal: Config.nutrition.defaultCarbsGoal,
@@ -110,6 +120,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: user?.email || '',
         full_name: 'Usuario FitFood',
         weight_goal: 70,
+        height: 170,
+        birth_date: '1995-01-01',
+        age: 31,
+        training_days_per_week: null,
+        training_duration_per_session: null,
         daily_calorie_goal: Config.nutrition.defaultCalorieGoal,
         daily_protein_goal: Config.nutrition.defaultProteinGoal,
         daily_carbs_goal: Config.nutrition.defaultCarbsGoal,
@@ -154,6 +169,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         full_name: fullName,
         weight_goal: null,
+        height: null,
+        birth_date: null,
+        age: 0,
+        training_days_per_week: null,
+        training_duration_per_session: null,
         daily_calorie_goal: Config.nutrition.defaultCalorieGoal,
         daily_protein_goal: Config.nutrition.defaultProteinGoal,
         daily_carbs_goal: Config.nutrition.defaultCarbsGoal,

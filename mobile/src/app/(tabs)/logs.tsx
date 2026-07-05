@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable, Alert, RefreshControl } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { Plus, Trash2, Salad, Dumbbell, Coffee, PlusCircle } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Plus, Trash2, Salad, Dumbbell, Coffee, PlusCircle, Camera } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { Config } from '@/constants/Config';
 import { supabase } from '@/services/supabase';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { SuccessModal, ErrorModal, AddFoodModal, AddExerciseModal, FoodDetailModal } from '@/components/modal';
 
 interface FoodLog {
   id: string;
@@ -17,6 +18,7 @@ interface FoodLog {
   carbs: number;
   fat: number;
   logged_at: string;
+  image_url?: string | null;
 }
 
 interface ExerciseLog {
@@ -29,10 +31,21 @@ interface ExerciseLog {
 
 export default function LogsScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'foods' | 'exercises'>('foods');
   const [refreshing, setRefreshing] = useState(false);
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
+
+  // Modal and form states
+  const [showAddFood, setShowAddFood] = useState(false);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [selectedFood, setSelectedFood] = useState<FoodLog | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -114,107 +127,70 @@ export default function LogsScreen() {
   };
 
   const handleAddFood = () => {
-    // We can prompt the user to quickly log a food manually.
-    // In a production app, this would open a modal form.
-    // For our clean UX, we can implement dynamic alerts.
-    Alert.prompt(
-      'Añadir Alimento',
-      'Ingresa el nombre, calorías, prot, carb, grasas separados por comas:\nEj: Huevo frito, 150, 12, 1, 11',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Guardar',
-          onPress: async (text) => {
-            if (!text) return;
-            const parts = text.split(',');
-            if (parts.length < 2) {
-              Alert.alert('Formato inválido', 'Debes ingresar al menos el nombre y las calorías.');
-              return;
-            }
+    setShowAddFood(true);
+  };
 
-            const name = parts[0].trim();
-            const calories = parseInt(parts[1]?.trim() || '0');
-            const protein = parseFloat(parts[2]?.trim() || '0');
-            const carbs = parseFloat(parts[3]?.trim() || '0');
-            const fat = parseFloat(parts[4]?.trim() || '0');
+  const onSaveFood = async (food: {
+    food_name: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    const newLog = {
+      user_id: user?.id,
+      ...food,
+    };
 
-            if (!name || isNaN(calories)) {
-              Alert.alert('Datos inválidos', 'El nombre y las calorías son campos obligatorios.');
-              return;
-            }
+    try {
+      if (user) {
+        const { error } = await supabase.from('food_logs').insert([newLog]);
+        if (error) throw error;
+        fetchData();
+      }
+    } catch (err) {
+      // Fallback local update
+      const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
+      setFoodLogs(prev => [mockLog, ...prev]);
+    }
 
-            const newLog = {
-              user_id: user?.id,
-              food_name: name,
-              calories,
-              protein,
-              carbs,
-              fat,
-            };
-
-            try {
-              if (user) {
-                const { error } = await supabase.from('food_logs').insert([newLog]);
-                if (error) throw error;
-                fetchData();
-              }
-            } catch (err) {
-              // Fallback local update
-              const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
-              setFoodLogs(prev => [mockLog, ...prev]);
-            }
-          },
-        },
-      ]
-    );
+    setModalTitle('Comida Registrada');
+    setModalMessage(`Se ha guardado "${food.food_name}" en tu diario.`);
+    setShowSuccess(true);
   };
 
   const handleAddExercise = () => {
-    Alert.prompt(
-      'Añadir Ejercicio',
-      'Ingresa el tipo de ejercicio, duración (min), intensidad separados por comas:\nEj: Correr, 30, Media',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Guardar',
-          onPress: async (text) => {
-            if (!text) return;
-            const parts = text.split(',');
-            if (parts.length < 2) {
-              Alert.alert('Formato inválido', 'Debes ingresar el tipo de ejercicio y la duración.');
-              return;
-            }
+    setShowAddExercise(true);
+  };
 
-            const type = parts[0].trim();
-            const duration = parseInt(parts[1]?.trim() || '0');
-            const intensity = parts[2]?.trim() || 'Media';
+  const onSaveExercise = async (exercise: {
+    exercise_type: string;
+    duration_minutes: number;
+    intensity: string;
+  }) => {
+    const newLog = {
+      user_id: user?.id,
+      ...exercise,
+    };
 
-            if (!type || isNaN(duration) || duration <= 0) {
-              Alert.alert('Datos inválidos', 'El ejercicio y la duración deben ser válidos.');
-              return;
-            }
+    try {
+      if (user) {
+        const { error } = await supabase.from('exercise_logs').insert([newLog]);
+        if (error) throw error;
+        fetchData();
+      }
+    } catch (err) {
+      const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
+      setExerciseLogs(prev => [mockLog, ...prev]);
+    }
 
-            const newLog = {
-              user_id: user?.id,
-              exercise_type: type,
-              duration_minutes: duration,
-              intensity,
-            };
-
-            try {
-              if (user) {
-                const { error } = await supabase.from('exercise_logs').insert([newLog]);
-                if (error) throw error;
-                fetchData();
-              }
-            } catch (err) {
-              const mockLog = { id: Math.random().toString(), ...newLog, logged_at: new Date().toISOString() };
-              setExerciseLogs(prev => [mockLog, ...prev]);
-            }
-          },
-        },
-      ]
-    );
+    setModalTitle('Ejercicio Registrado');
+    let intensityLabel = 'Media';
+    if (exercise.intensity === 'Low') intensityLabel = 'Suave';
+    if (exercise.intensity === 'High') intensityLabel = 'Intensa';
+    
+    setModalMessage(`Se ha guardado "${exercise.exercise_type}" (${intensityLabel}) en tu diario.`);
+    setShowSuccess(true);
   };
 
   const handleDeleteFood = async (id: string) => {
@@ -226,8 +202,10 @@ export default function LogsScreen() {
       }
     } catch (err) {
       setFoodLogs(prev => prev.filter(log => log.id !== id));
-      Alert.alert('Eliminado', 'Alimento eliminado localmente.');
     }
+    setModalTitle('Eliminado');
+    setModalMessage('Alimento eliminado correctamente de tu diario.');
+    setShowSuccess(true);
   };
 
   const handleDeleteExercise = async (id: string) => {
@@ -239,8 +217,10 @@ export default function LogsScreen() {
       }
     } catch (err) {
       setExerciseLogs(prev => prev.filter(log => log.id !== id));
-      Alert.alert('Eliminado', 'Ejercicio eliminado localmente.');
     }
+    setModalTitle('Eliminado');
+    setModalMessage('Ejercicio eliminado correctamente de tu diario.');
+    setShowSuccess(true);
   };
 
   return (
@@ -272,7 +252,21 @@ export default function LogsScreen() {
       {/* Actions Button */}
       <View style={styles.actionBtnRow}>
         {activeTab === 'foods' ? (
-          <Button title="Registrar Alimento" onPress={handleAddFood} variant="outline" style={styles.actionButton} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+            <Button 
+              title="Manual" 
+              onPress={handleAddFood} 
+              variant="outline" 
+              style={[styles.actionButton, { flex: 0.48 }]} 
+            />
+            <Button 
+              title="Escanear IA" 
+              onPress={() => router.push('/(tabs)/analyzer')} 
+              variant="primary" 
+              style={[styles.actionButton, { flex: 0.48 }]} 
+              icon={<Camera size={16} color="#FFFFFF" />}
+            />
+          </View>
         ) : (
           <Button title="Registrar Ejercicio" onPress={handleAddExercise} variant="outline" style={styles.actionButton} />
         )}
@@ -292,7 +286,14 @@ export default function LogsScreen() {
             </View>
           ) : (
             foodLogs.map(log => (
-              <Card key={log.id} style={styles.logCard}>
+              <Card 
+                key={log.id} 
+                style={styles.logCard}
+                onPress={() => {
+                  setSelectedFood(log);
+                  setShowDetailModal(true);
+                }}
+              >
                 <View style={styles.logHeader}>
                   <View style={styles.logTitleContainer}>
                     <Text style={styles.logTitle} numberOfLines={1}>{log.food_name}</Text>
@@ -339,6 +340,38 @@ export default function LogsScreen() {
           )
         )}
       </ScrollView>
+
+      <AddFoodModal
+        visible={showAddFood}
+        onSave={onSaveFood}
+        onClose={() => setShowAddFood(false)}
+      />
+
+      <AddExerciseModal
+        visible={showAddExercise}
+        onSave={onSaveExercise}
+        onClose={() => setShowAddExercise(false)}
+      />
+
+      <SuccessModal
+        visible={showSuccess}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={() => setShowSuccess(false)}
+      />
+
+      <ErrorModal
+        visible={showError}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={() => setShowError(false)}
+      />
+
+      <FoodDetailModal
+        visible={showDetailModal}
+        food={selectedFood}
+        onClose={() => setShowDetailModal(false)}
+      />
     </SafeAreaView>
   );
 }

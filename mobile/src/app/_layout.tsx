@@ -34,6 +34,8 @@ function InitialLayout() {
       <Stack.Screen name="splash" options={{ animation: 'fade' }} />
       <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+      <Stack.Screen name="weight-picker" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="liquids-logger" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }

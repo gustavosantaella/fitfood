@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, User, Heart } from 'lucide-react-native';
@@ -81,7 +81,8 @@ export default function RegisterScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
+          <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
+            <View style={styles.header}>
             <View style={styles.logoBadge}>
               <Heart size={32} color={Config.theme.colors.primary} fill={Config.theme.colors.primary} />
             </View>
@@ -150,8 +151,9 @@ export default function RegisterScreen() {
               />
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
 
       <SuccessModal
         visible={showSuccess}

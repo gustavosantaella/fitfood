@@ -28,11 +28,16 @@ export const Input: React.FC<InputProps> = ({
           styles.inputContainer,
           isFocused && styles.inputFocused,
           error ? styles.inputError : null,
+          props.multiline ? { height: 100, alignItems: 'flex-start', paddingTop: 10, paddingBottom: 10 } : null,
         ]}
       >
         {icon && <View style={styles.iconContainer}>{icon}</View>}
         <TextInput
-          style={[styles.input, inputStyle]}
+          style={[
+            styles.input,
+            inputStyle,
+            props.multiline ? { textAlignVertical: 'top', height: '100%' } : null
+          ]}
           placeholderTextColor={Config.theme.colors.textMuted}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}

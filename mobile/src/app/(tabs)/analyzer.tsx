@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Image, Animated, Alert, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, Image, Animated, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon, Sparkles, RefreshCw, Check, X } from 'lucide-react-native';
 import { Config } from '@/constants/Config';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/services/supabase';
-import { analyzeFoodPhoto, AIAnalysisResult } from '@/services/gemini';
+import { FoodService, AIAnalysisResult } from '@/services/FoodService';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { MacroBar } from '@/components/MacroBar';
+import { SuccessModal, ErrorModal } from '@/components/modal';
 
 export default function AnalyzerScreen() {
   const { user } = useAuth();
@@ -18,6 +19,12 @@ export default function AnalyzerScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [saveLoading, setSaveLoading] = useState(false);
+
+  // Modal states
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
   const [stepText, setStepText] = useState('');
 
   // Scanning animation value
@@ -73,7 +80,9 @@ export default function AnalyzerScreen() {
   const handlePickImage = async (useCamera: boolean) => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
-      Alert.alert('Permiso Denegado', 'Necesitamos accesos a la cámara y galería para analizar tus platos.');
+      setModalTitle('Permiso Denegado');
+      setModalMessage('Necesitamos accesos a la cámara y galería para analizar tus platos.');
+      setShowError(true);
       return;
     }
 
@@ -98,18 +107,21 @@ export default function AnalyzerScreen() {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const selectedUri = result.assets[0].uri;
+      const mimeType = result.assets[0].mimeType || 'image/jpeg';
       setImage(selectedUri);
-      startAnalysis(selectedUri);
+      startAnalysis(selectedUri, mimeType);
     }
   };
 
-  const startAnalysis = async (uri: string) => {
+  const startAnalysis = async (imageUri: string, mimeType: string) => {
     setAnalyzing(true);
     try {
-      const analysis = await analyzeFoodPhoto(uri);
+      const analysis = await FoodService.getInstance().analyzeFoodPhoto(imageUri, mimeType);
       setResult(analysis);
-    } catch (err) {
-      Alert.alert('Error', 'No se pudo realizar el análisis de la comida.');
+    } catch (err: any) {
+      setModalTitle('Error de Análisis');
+      setModalMessage(err.message || 'No se pudo realizar el análisis de la comida.');
+      setShowError(true);
     } finally {
       setAnalyzing(false);
     }
@@ -133,25 +145,23 @@ export default function AnalyzerScreen() {
       const { error } = await supabase.from('food_logs').insert([newLog]);
       if (error) throw error;
 
-      Alert.alert('Comida Guardada', 'Se ha guardado el alimento en tu diario correctamente.', [
-        {
-          text: 'Entendido',
-          onPress: () => {
-            setImage(null);
-            setResult(null);
-          },
-        },
-      ]);
+      // If the analyzed food is a drink, automatically track it in water_logs
+      if (result.is_beverage && result.beverage_volume > 0) {
+        await supabase.from('water_logs').insert([
+          {
+            user_id: user.id,
+            amount: result.beverage_volume,
+          }
+        ]);
+      }
+
+      setModalTitle('Comida Guardada');
+      setModalMessage('Se ha guardado el alimento en tu diario correctamente.');
+      setShowSuccess(true);
     } catch (err) {
-      Alert.alert('Modo Local', 'Guardado en historial local de sesión (DB sin conexión).', [
-        {
-          text: 'Entendido',
-          onPress: () => {
-            setImage(null);
-            setResult(null);
-          },
-        },
-      ]);
+      setModalTitle('Modo Local');
+      setModalMessage('Guardado en historial local de sesión (DB sin conexión).');
+      setShowSuccess(true);
     } finally {
       setSaveLoading(false);
     }
@@ -246,6 +256,10 @@ export default function AnalyzerScreen() {
                   <Text style={styles.caloriesLabel}>kcal estimadas</Text>
                 </View>
 
+                {result.description && (
+                   <Text style={styles.descriptionText}>{result.description}</Text>
+                )}
+
                 <View style={styles.macrosDivider} />
 
                 <MacroBar
@@ -289,6 +303,24 @@ export default function AnalyzerScreen() {
           </View>
         )}
       </ScrollView>
+
+      <SuccessModal
+        visible={showSuccess}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={() => {
+          setShowSuccess(false);
+          setImage(null);
+          setResult(null);
+        }}
+      />
+
+      <ErrorModal
+        visible={showError}
+        title={modalTitle}
+        message={modalMessage}
+        onClose={() => setShowError(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -445,6 +477,18 @@ const styles = StyleSheet.create({
     color: Config.theme.colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  descriptionText: {
+    color: Config.theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: 'italic',
+    marginBottom: Config.theme.spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    padding: Config.theme.spacing.sm,
+    borderRadius: Config.theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
   },
   macrosDivider: {
     height: 1,
