@@ -1,5 +1,5 @@
 export const Config = {
-  appName: 'FitFood',
+  appName: 'My FitLife App',
 
   // Supabase Credentials
   supabase: {

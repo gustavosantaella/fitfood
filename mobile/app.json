@@ -1,15 +1,17 @@
 {
   "expo": {
-    "name": "FitLife",
-    "slug": "fitlife",
+    "name": "My FitLife App",
+    "slug": "myfitlifeapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "ve.nexosoftware.myfitlifeapp"
     },
     "android": {
+      "package": "ve.nexosoftware.myfitlifeapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

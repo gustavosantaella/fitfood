@@ -17,6 +17,10 @@ interface Profile {
   daily_protein_goal: number;
   daily_carbs_goal: number;
   daily_fat_goal: number;
+  daily_water_goal?: number | null;
+  daily_sugar_limit?: number | null;
+  goals_description?: string | null;
+  onboarding_completed: boolean;
 }
 
 interface AuthContextType {
@@ -40,24 +44,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session on startup
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+    const checkUserSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        // Verify session token with server to check if user still exists
+        const { data: { user: verifiedUser }, error } = await supabase.auth.getUser();
+        if (error || !verifiedUser) {
+          console.warn('Session verification failed (user may have been deleted):', error);
+          // Clear invalid session
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setSession(session);
+        setUser(verifiedUser);
+        await fetchProfile(verifiedUser.id);
+      } catch (err) {
+        console.error('Error verifying user session:', err);
         setLoading(false);
       }
-    });
+    };
+
+    checkUserSession();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        // Double-check with server on state change
+        const { data: { user: verifiedUser }, error } = await supabase.auth.getUser();
+        if (error || !verifiedUser) {
+          console.warn('onAuthStateChange: User verification failed', error);
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        setSession(session);
+        setUser(verifiedUser);
+        fetchProfile(verifiedUser.id);
       } else {
+        setSession(null);
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
@@ -93,6 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             daily_protein_goal: Config.nutrition.defaultProteinGoal,
             daily_carbs_goal: Config.nutrition.defaultCarbsGoal,
             daily_fat_goal: Config.nutrition.defaultFatGoal,
+            daily_water_goal: 2000,
+            daily_sugar_limit: 50,
+            goals_description: null,
+            onboarding_completed: false,
           };
           
           const { error: insertError } = await supabase
@@ -129,6 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         daily_protein_goal: Config.nutrition.defaultProteinGoal,
         daily_carbs_goal: Config.nutrition.defaultCarbsGoal,
         daily_fat_goal: Config.nutrition.defaultFatGoal,
+        daily_water_goal: 2000,
+        daily_sugar_limit: 50,
+        goals_description: null,
+        onboarding_completed: true,
       });
     } finally {
       setLoading(false);
@@ -178,6 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         daily_protein_goal: Config.nutrition.defaultProteinGoal,
         daily_carbs_goal: Config.nutrition.defaultCarbsGoal,
         daily_fat_goal: Config.nutrition.defaultFatGoal,
+        daily_water_goal: 2000,
+        daily_sugar_limit: 50,
+        goals_description: null,
+        onboarding_completed: false,
       };
 
       const { error: profileError } = await supabase
