@@ -9,3 +9,4 @@ export * from './SelectExerciseModal';
 export * from './WorkoutSummaryModal';
 export * from './CreateRoutineModal';
 export * from './AiRoutineModal';
+export * from './RoutineDetailModal';

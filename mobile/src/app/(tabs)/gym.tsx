@@ -19,7 +19,7 @@ import {
   GymRoutine,
   getRandomMotivation,
 } from '@/constants/GymData';
-import { CreateRoutineModal, AiRoutineModal } from '@/components/modal';
+import { CreateRoutineModal, AiRoutineModal, RoutineDetailModal } from '@/components/modal';
 import { SuccessModal, ErrorModal, ConfirmModal } from '@/components/modal';
 
 interface WorkoutHistoryItem {
@@ -68,6 +68,10 @@ export default function GymScreen() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<any>(null);
 
+  // Routine Detail
+  const [showRoutineDetail, setShowRoutineDetail] = useState(false);
+  const [selectedRoutineForDetail, setSelectedRoutineForDetail] = useState<GymRoutine | null>(null);
+
   const fetchData = async () => {
     if (!user) return;
 
@@ -100,6 +104,7 @@ export default function GymScreen() {
   };
 
   const handleStartRoutine = (routine: GymRoutine) => {
+    setShowRoutineDetail(false);
     const primaryGroup = routine.muscleGroups[0] || 'fullbody';
     router.push(`/gym-workout?group=${primaryGroup}&routine=${encodeURIComponent(routine.name)}`);
   };
@@ -392,7 +397,10 @@ export default function GymScreen() {
               <Card
                 key={routine.id}
                 style={styles.routineCard}
-                onPress={() => handleStartRoutine(routine)}
+                onPress={() => {
+                  setSelectedRoutineForDetail(routine);
+                  setShowRoutineDetail(true);
+                }}
               >
                 <View style={styles.routineHeader}>
                   <View style={styles.routineInfo}>
@@ -490,6 +498,13 @@ export default function GymScreen() {
         onSaveDay={handleSaveAiDay}
         onSaveAll={handleSaveAiAll}
         onClose={() => setShowAiRoutine(false)}
+      />
+
+      <RoutineDetailModal
+        visible={showRoutineDetail}
+        routine={selectedRoutineForDetail}
+        onStart={handleStartRoutine}
+        onClose={() => setShowRoutineDetail(false)}
       />
 
       <SuccessModal
