@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { LayoutDashboard, ClipboardList, Camera, User } from 'lucide-react-native';
+import { LayoutDashboard, ClipboardList, Camera, User, Dumbbell } from 'lucide-react-native';
 import { Config } from '@/constants/Config';
 import { Platform } from 'react-native';
 
@@ -37,6 +37,13 @@ export default function TabsLayout() {
         options={{
           title: 'Diario',
           tabBarIcon: ({ color, size }) => <ClipboardList color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="gym"
+        options={{
+          title: 'Gym',
+          tabBarIcon: ({ color, size }) => <Dumbbell color={color} size={size} />,
         }}
       />
       <Tabs.Screen

@@ -65,10 +65,10 @@ export default function DashboardScreen() {
 
       // 2. Fetch Exercise count for Today
       const { data: exerciseLogs, error: exerciseError } = await supabase
-        .from('exercise_logs')
+        .from('gym_workouts')
         .select('id')
         .eq('user_id', user.id)
-        .gte('logged_at', todayIso);
+        .gte('created_at', todayIso);
 
       if (exerciseError) throw exerciseError;
       setExerciseCount(exerciseLogs?.length || 0);
@@ -243,7 +243,7 @@ export default function DashboardScreen() {
             <Text style={styles.statsSubtext}>Goal: {profile?.weight_goal ? `${profile.weight_goal} kg` : 'N/A'}</Text>
           </Card>
 
-          <Card style={[styles.statsCard, { marginLeft: Config.theme.spacing.sm }]} onPress={() => router.push('/(tabs)/logs')}>
+          <Card style={[styles.statsCard, { marginLeft: Config.theme.spacing.sm }]} onPress={() => router.push('/(tabs)/gym')}>
             <View style={styles.statsHeader}>
               <Dumbbell size={20} color={Config.theme.colors.primary} />
               <ArrowRight size={18} color={Config.theme.colors.textMuted} />

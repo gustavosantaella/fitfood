@@ -5,3 +5,7 @@ export * from './AddFoodModal';
 export * from './AddExerciseModal';
 export * from './FoodDetailModal';
 export * from './AiRecommendationModal';
+export * from './SelectExerciseModal';
+export * from './WorkoutSummaryModal';
+export * from './CreateRoutineModal';
+export * from './AiRoutineModal';

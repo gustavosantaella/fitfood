@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AiService } from './ai.service';
 import { ApiResponse } from '../utils/api-response';
 import { RecommendPlanDto } from './dto/recommend-plan.dto';
+import { RecommendRoutineDto } from './dto/recommend-routine.dto';
 
 @Controller('ai')
 export class AiController {
@@ -30,4 +31,12 @@ export class AiController {
     const result = await this.aiService.recommendPlan(recommendPlanDto);
     return ApiResponse.success('Plan de metas recomendado con éxito por la IA', result);
   }
+
+  @Post('recommend-routine')
+  @HttpCode(HttpStatus.OK)
+  async recommendRoutine(@Body() recommendRoutineDto: RecommendRoutineDto) {
+    const result = await this.aiService.recommendRoutine(recommendRoutineDto);
+    return ApiResponse.success('Rutina de entrenamiento generada con éxito por la IA', result);
+  }
 }
+

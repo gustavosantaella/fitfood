@@ -48,6 +48,7 @@ function InitialLayout() {
       <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
       <Stack.Screen name="weight-picker" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="liquids-logger" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="gym-workout" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }

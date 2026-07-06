@@ -12,6 +12,8 @@ import { Button } from '@/components/Button';
 import { WeightChart } from '@/components/WeightChart';
 import { SuccessModal, ErrorModal, ConfirmModal, AiRecommendationModal } from '@/components/modal';
 import { FoodService } from '@/services/FoodService';
+import { GymService } from '@/services/GymService';
+import { GymRoutine } from '@/constants/GymData';
 
 interface WeightLog {
   id: string;
@@ -25,6 +27,7 @@ export default function ProfileScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
+  const [routines, setRoutines] = useState<GymRoutine[]>([]);
 
   // Convert YYYY-MM-DD from database to DD/MM/AAAA for the input state
   const formatDateToDisplay = (dateDb: string | null) => {
@@ -151,20 +154,27 @@ export default function ProfileScreen() {
         { id: '4', weight: 74.5, logged_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
         { id: '5', weight: 73.9, logged_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
         { id: '6', weight: 73.4, logged_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: '7', weight: 72.8, logged_at: new Date().toISOString() },
       ]);
     }
+  };
+
+  const fetchRoutines = async () => {
+    if (!user) return;
+    const data = await GymService.getInstance().getRoutines(user.id);
+    setRoutines(data);
   };
 
   useFocusEffect(
     useCallback(() => {
       fetchWeightHistory();
+      fetchRoutines();
     }, [user])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchWeightHistory();
+    await fetchRoutines();
     setRefreshing(false);
   };
 
@@ -593,9 +603,20 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <View style={styles.questionsContainer}>
-                <Text style={styles.routinePlaceholder}>
-                  Próximamente: Diseña tu plan de rutinas personalizadas con nuestro entrenador de IA.
-                </Text>
+                {routines.length === 0 ? (
+                  <Text style={styles.routinePlaceholder}>
+                    Aún no tienes rutinas. Ve a la pestaña Gym para generar una con IA o crear la tuya.
+                  </Text>
+                ) : (
+                  routines.map(routine => (
+                    <View key={routine.id} style={{ padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: Config.theme.colors.cardBorder }}>
+                      <Text style={{ color: Config.theme.colors.text, fontSize: 14, fontWeight: '700' }}>{routine.name}</Text>
+                      <Text style={{ color: Config.theme.colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                        {routine.exercises.length} ejercicios · ~{routine.estimatedMinutes} min
+                      </Text>
+                    </View>
+                  ))
+                )}
               </View>
             )}
           </Card>
